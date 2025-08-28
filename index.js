@@ -1,5 +1,9 @@
-const { Client, LocalAuth } = require('whatsapp-web.js');
+const { Client } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
+const mongoose = require("mongoose");
+const MongoStore = require("wwebjs-mongo").MongoStore;
+
+const connectDB = require("./database");
 
 // comando !important para marcar mensajes importantes
 const fs = require('fs');
@@ -43,8 +47,15 @@ function guardarTrabajos() {
     }
 }
 
+
+// conectar a Mongo
+connectDB();
+
+// usar MongoStore como auth
+const store = new MongoStore({ mongoose });
+
 const client = new Client({
-    authStrategy: new LocalAuth(),
+    authStrategy: store,
     puppeteer: {
         headless: true,
         args: [
