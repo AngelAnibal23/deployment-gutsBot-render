@@ -5,6 +5,20 @@ const qrcode = require('qrcode-terminal');
 const fs = require('fs');
 const TRABAJOS_FILE = './trabajos.json';
 
+// para que detecet el bot prendido
+const express = require("express");
+const app = express();
+
+const PORT = process.env.PORT || 3000;
+
+app.get("/", (req, res) => {
+  res.send("Bot corriendo en Render 🚀");
+});
+
+app.listen(PORT, () => {
+  console.log(`Servidor escuchando en el puerto ${PORT}`);
+});
+
 
 let trabajos = [];
 
