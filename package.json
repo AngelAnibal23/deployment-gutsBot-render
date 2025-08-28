@@ -4,7 +4,11 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node index.js"
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "build": "echo 'No build step required'",
+    "logs": "node scripts/viewLogs.js",
+    "status": "node scripts/botStatus.js"
   },
   "keywords": [],
   "author": "",
@@ -15,6 +19,10 @@
     "express": "^4.19.2",
     "whatsapp-web.js": "^1.32.0",
     "mongoose": "^8.7.0",
-    "wwebjs-mongo": "^1.1.0"
+    "wwebjs-mongo": "^1.1.0",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
   }
 }
