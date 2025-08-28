@@ -1,7 +1,7 @@
-const { Client } = require('whatsapp-web.js');
+const { Client, RemoteAuth } = require("whatsapp-web.js");
 const qrcode = require('qrcode-terminal');
 const mongoose = require("mongoose");
-const MongoStore = require("wwebjs-mongo").MongoStore;
+const MongoStore = require("wwebjs-mongo");
 
 const connectDB = require("./database");
 
@@ -55,7 +55,10 @@ connectDB();
 const store = new MongoStore({ mongoose });
 
 const client = new Client({
-    authStrategy: store,
+    authStrategy: new RemoteAuth({
+        store: store,
+        backupSyncIntervalMs: 300000 // guarda cada 5 min
+    }),
     puppeteer: {
         headless: true,
         args: [
