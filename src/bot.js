@@ -1,6 +1,6 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
-const { BotState, logActivity } = require('./database');
+const { BotState, SessionData, logActivity } = require('./database');
 const { handleMessage } = require('./messageHandler');
 const fs = require('fs').promises;
 const path = require('path');
@@ -65,11 +65,100 @@ class WhatsAppBot {
     }
   }
 
+  // NUEVA función: Guardar sesión en MongoDB
+  async saveSessionToMongoDB() {
+    try {
+      const sessionPath = path.join(this.sessionDir, 'session-main');
+      
+      // Verificar si existe el archivo de sesión
+      try {
+        await fs.access(sessionPath);
+        console.log('📁 Archivo de sesión encontrado, guardando en MongoDB...');
+        
+        const authData = await fs.readFile(sessionPath, 'utf8');
+        
+        await SessionData.findOneAndUpdate(
+          { sessionId: 'main' },
+          { 
+            authData: authData,
+            lastSync: new Date(),
+            environment: IS_RENDER ? 'render' : 'local'
+          },
+          { upsert: true }
+        );
+        
+        await logActivity('info', 'Sesión guardada en MongoDB', { 
+          environment: IS_RENDER ? 'render' : 'local',
+          dataLength: authData.length 
+        });
+        
+      } catch (fileError) {
+        console.log('📁 No hay archivo de sesión para guardar aún');
+      }
+    } catch (error) {
+      await logActivity('error', 'Error guardando sesión en MongoDB', { error: error.message });
+    }
+  }
+
+  // NUEVA función: Restaurar sesión desde MongoDB
+  async restoreSessionFromMongoDB() {
+    try {
+      const sessionDoc = await SessionData.findOne({ sessionId: 'main' });
+      
+      if (!sessionDoc || !sessionDoc.authData) {
+        console.log('📂 No hay sesión guardada en MongoDB');
+        return false;
+      }
+
+      // Crear directorio si no existe
+      await fs.mkdir(this.sessionDir, { recursive: true });
+      
+      const sessionPath = path.join(this.sessionDir, 'session-main');
+      await fs.writeFile(sessionPath, sessionDoc.authData);
+      
+      console.log('✅ Sesión restaurada desde MongoDB');
+      await logActivity('info', 'Sesión restaurada desde MongoDB', { 
+        fromEnvironment: sessionDoc.environment,
+        currentEnvironment: IS_RENDER ? 'render' : 'local',
+        lastSync: sessionDoc.lastSync
+      });
+      
+      return true;
+    } catch (error) {
+      console.error('❌ Error restaurando sesión:', error.message);
+      await logActivity('error', 'Error restaurando sesión desde MongoDB', { error: error.message });
+      return false;
+    }
+  }
+
   async shouldAutoStart() {
     try {
+      // 1. Verificar estado del bot
       const timeDiff = (new Date() - this.botState.lastActivity) / (1000 * 60);
-      return this.botState.isAuthenticated && timeDiff < 60;
+      const botWasAuthenticated = this.botState.isAuthenticated;
+      
+      // 2. Verificar si hay sesión en MongoDB
+      const hasSessionInMongoDB = await SessionData.findOne({ 
+        sessionId: 'main', 
+        authData: { $ne: null } 
+      });
+      
+      // 3. Auto-iniciar si:
+      // - Hay sesión guardada en MongoDB, O
+      // - El bot estaba autenticado y no ha pasado mucho tiempo
+      const shouldStart = hasSessionInMongoDB || (botWasAuthenticated && timeDiff < 120);
+      
+      await logActivity('info', 'Verificación de auto-inicio', {
+        shouldStart,
+        botWasAuthenticated,
+        timeSinceLastActivity: timeDiff,
+        hasSessionInMongoDB: !!hasSessionInMongoDB,
+        environment: IS_RENDER ? 'render' : 'local'
+      });
+      
+      return shouldStart;
     } catch (error) {
+      await logActivity('error', 'Error en shouldAutoStart', { error: error.message });
       return false;
     }
   }
@@ -77,6 +166,9 @@ class WhatsAppBot {
   async initializeClient() {
     try {
       await fs.mkdir(this.sessionDir, { recursive: true });
+
+      // INTENTAR RESTAURAR SESIÓN ANTES DE CREAR EL CLIENTE
+      await this.restoreSessionFromMongoDB();
 
       this.client = new Client({
         authStrategy: new LocalAuth({
@@ -123,21 +215,45 @@ class WhatsAppBot {
         qrCode: null 
       });
       this.isInitialized = true;
+      
+      // GUARDAR SESIÓN DESPUÉS DE ESTAR LISTO
+      setTimeout(() => this.saveSessionToMongoDB(), 3000);
     });
 
     this.client.on('authenticated', async () => {
       console.log('✅ Autenticado');
       await this.updateBotState({ isAuthenticated: true });
+      
+      // GUARDAR SESIÓN CUANDO SE AUTENTICA
+      setTimeout(() => this.saveSessionToMongoDB(), 2000);
     });
 
     this.client.on('auth_failure', async (msg) => {
       console.error('❌ Fallo autenticación:', msg);
       await this.updateBotState({ isAuthenticated: false, isActive: false });
+      
+      // LIMPIAR SESIÓN CORRUPTA
+      try {
+        await SessionData.findOneAndDelete({ sessionId: 'main' });
+        console.log('🗑️ Sesión corrupta eliminada de MongoDB');
+      } catch (error) {
+        console.error('Error eliminando sesión corrupta:', error.message);
+      }
     });
 
     this.client.on('disconnected', async (reason) => {
       console.log('⚠️ Desconectado:', reason);
       await this.updateBotState({ isActive: false });
+      
+      // Si la desconexión fue por logout, limpiar sesión
+      if (reason === 'LOGOUT') {
+        try {
+          await SessionData.findOneAndDelete({ sessionId: 'main' });
+          console.log('🗑️ Sesión eliminada por logout');
+        } catch (error) {
+          console.error('Error eliminando sesión:', error.message);
+        }
+      }
     });
 
     this.client.on('message', async (message) => {

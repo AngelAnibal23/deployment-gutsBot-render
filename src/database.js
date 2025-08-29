@@ -19,8 +19,16 @@ const BotLogSchema = new mongoose.Schema({
   data: mongoose.Schema.Types.Mixed
 });
 
+const SessionDataSchema = new mongoose.Schema({
+  sessionId: { type: String, default: 'main', unique: true },
+  authData: { type: String, default: null }, // Datos serializados de la sesión
+  lastSync: { type: Date, default: Date.now },
+  environment: { type: String, default: 'unknown' } // 'local', 'render', etc
+});
+
 const BotState = mongoose.model('BotState', BotStateSchema);
 const BotLog = mongoose.model('BotLog', BotLogSchema);
+const SessionData = mongoose.model('SessionData', SessionDataSchema);
 
 async function connectDatabase() {
   try {
@@ -51,6 +59,7 @@ async function logActivity(level, message, data = null) {
 module.exports = {
   BotState,
   BotLog,
+  SessionData,
   connectDatabase,
   logActivity
 };
