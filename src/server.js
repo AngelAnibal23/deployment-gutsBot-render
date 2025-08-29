@@ -122,7 +122,7 @@ function createWebServer() {
                     console.log('Iniciando generación de QR...');
                     
                     // Decodificar desde Base64
-                    const qrString = Buffer.from('${base64QrCode}', 'base64').toString('utf8');
+                    const qrString = window.atob('${base64QrCode}');
                     const qrContainer = document.getElementById('qrcode');
                     
                     console.log('QR String length:', qrString.length);
