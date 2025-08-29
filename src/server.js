@@ -119,66 +119,60 @@ function createWebServer() {
                 </div>
                 
                 <script>
-                    console.log('Iniciando generación de QR...');
-                    
-                    // Decodificar desde Base64
-                    const qrString = window.atob('${base64QrCode}');
-                    const qrContainer = document.getElementById('qrcode');
-                    
-                    console.log('QR String length:', qrString.length);
-                    console.log('QR String preview:', qrString.substring(0, 50));
-                    
-                    // Verificar si la librería está cargada
-                    if (typeof QRCode === 'undefined') {
-                        showError('No se pudo cargar la librería QR');
-                        return;
-                    }
-                    
-                    // Generar QR directamente
-                    QRCode.toDataURL(qrString, {
-                        width: 280,
-                        margin: 2,
-                        color: {
-                            dark: '#000000',
-                            light: '#FFFFFF'
-                        },
-                        errorCorrectionLevel: 'M'
-                    }, function (error, url) {
-                        if (error) {
-                            console.error('Error generando QR:', error);
-                            showError('Error generando QR: ' + error.message);
-                            
-                            // Fallback: mostrar el texto del QR para debugging
-                            qrContainer.innerHTML += \`
-                                <div style="margin-top: 10px; font-size: 10px; color: #999;">
-                                    QR Data: \${qrString.substring(0, 100)}...
-                                </div>
-                            \`;
-                        } else {
-                            console.log('QR generado exitosamente');
-                            const img = document.createElement('img');
-                            img.src = url;
-                            img.style.maxWidth = '100%';
-                            img.alt = 'WhatsApp QR Code';
-                            qrContainer.innerHTML = '';
-                            qrContainer.appendChild(img);
-                        }
-                    });
-                    
-                    function showError(message) {
-                        qrContainer.innerHTML = \`
-                            <div class="error">
-                                ❌ \${message}<br>
-                                <small>Intenta actualizar la página</small>
-                            </div>
-                        \`;
-                    }
-                    
-                    // Auto-refresh cada 45 segundos
-                    setTimeout(() => {
-                        console.log('Auto-refresh...');
-                        location.reload();
-                    }, 45000);
+                  (function initQR() {
+                      console.log('Iniciando generación de QR...');
+
+                      // Decodificar desde Base64
+                      const qrString = window.atob('${base64QrCode}');
+                      const qrContainer = document.getElementById('qrcode');
+
+                      console.log('QR String length:', qrString.length);
+
+                      // Verificar si la librería está cargada
+                      if (typeof QRCode === 'undefined') {
+                          showError('No se pudo cargar la librería QR');
+                          return; // ← Ahora SÍ es válido porque está dentro de una función
+                      }
+
+                      // Generar QR
+                      QRCode.toDataURL(qrString, {
+                          width: 280,
+                          margin: 2,
+                          color: {
+                              dark: '#000000',
+                              light: '#FFFFFF'
+                          },
+                          errorCorrectionLevel: 'M'
+                      }, function (error, url) {
+                          if (error) {
+                              console.error('Error generando QR:', error);
+                              showError('Error generando QR: ' + error.message);
+                          } else {
+                              console.log('QR generado exitosamente');
+                              const img = document.createElement('img');
+                              img.src = url;
+                              img.style.maxWidth = '100%';
+                              img.alt = 'WhatsApp QR Code';
+                              qrContainer.innerHTML = '';
+                              qrContainer.appendChild(img);
+                          }
+                      });
+
+                      function showError(message) {
+                          qrContainer.innerHTML = \`
+                              <div class="error">
+                                  ❌ \${message}<br>
+                                  <small>Intenta actualizar la página</small>
+                              </div>
+                          \`;
+                      }
+                  })();
+
+                  // Auto-refresh cada 45 segundos
+                  setTimeout(() => {
+                      console.log('Auto-refresh...');
+                      location.reload();
+                  }, 45000);
                 </script>
             </body>
             </html>
