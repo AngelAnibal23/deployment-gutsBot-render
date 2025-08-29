@@ -50,7 +50,15 @@ function createWebServer() {
                       border-radius: 10px;
                       box-shadow: 0 4px 6px rgba(0,0,0,0.1);
                   }
-                  #qrcode { margin: 20px 0; }
+                  #qrcode { 
+                      margin: 20px 0; 
+                      min-height: 300px;
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                      border: 2px dashed #ddd;
+                      border-radius: 10px;
+                  }
                   .instructions {
                       color: #666;
                       font-size: 14px;
@@ -75,6 +83,25 @@ function createWebServer() {
                       background: #e3f2fd;
                       color: #1976d2;
                   }
+                  .loading {
+                      color: #666;
+                      font-size: 16px;
+                  }
+                  .error {
+                      color: #d32f2f;
+                      background: #ffebee;
+                      padding: 10px;
+                      border-radius: 5px;
+                      margin: 10px 0;
+                  }
+                  .qr-data {
+                      font-size: 10px;
+                      color: #999;
+                      word-break: break-all;
+                      margin-top: 10px;
+                      max-height: 50px;
+                      overflow: hidden;
+                  }
               </style>
           </head>
           <body>
@@ -83,7 +110,9 @@ function createWebServer() {
                   <div class="status">
                       ✅ Bot ejecutándose - Listo para escanear
                   </div>
-                  <div id="qrcode"></div>
+                  <div id="qrcode">
+                      <div class="loading">⏳ Generando código QR...</div>
+                  </div>
                   <div class="instructions">
                       📱 <strong>Instrucciones:</strong><br>
                       1. Abre WhatsApp en tu teléfono<br>
@@ -92,28 +121,93 @@ function createWebServer() {
                       4. Escanea este código QR
                   </div>
                   <button class="refresh-btn" onclick="location.reload()">🔄 Actualizar QR</button>
+                  
+                  <div class="qr-data">
+                      Datos QR: ${state.qrCode.substring(0, 50)}...
+                  </div>
               </div>
               
               <script>
-                  const qrString = '${state.qrCode}';
-                  QRCode.toCanvas(document.getElementById('qrcode'), qrString, {
-                      width: 300,
-                      margin: 2,
-                      color: {
-                          dark: '#000000',
-                          light: '#FFFFFF'
-                      }
-                  }, function (error) {
-                      if (error) {
-                          document.getElementById('qrcode').innerHTML = 
-                              '<p style="color: red;">Error generando QR: ' + error + '</p>';
-                      }
-                  });
+                  console.log('Iniciando generación de QR...');
                   
-                  // Auto-refresh cada 30 segundos
+                  const qrString = \`${state.qrCode}\`;
+                  const qrContainer = document.getElementById('qrcode');
+                  
+                  console.log('QR String length:', qrString.length);
+                  console.log('QR String preview:', qrString.substring(0, 100));
+                  
+                  // Intentar método 1: Canvas
+                  try {
+                      const canvas = document.createElement('canvas');
+                      QRCode.toCanvas(canvas, qrString, {
+                          width: 280,
+                          margin: 2,
+                          color: {
+                              dark: '#000000',
+                              light: '#FFFFFF'
+                          },
+                          errorCorrectionLevel: 'M'
+                      }, function (error) {
+                          if (error) {
+                              console.error('Error Canvas QR:', error);
+                              tryDataURL();
+                          } else {
+                              console.log('QR Canvas generado exitosamente');
+                              qrContainer.innerHTML = '';
+                              qrContainer.appendChild(canvas);
+                          }
+                      });
+                  } catch (e) {
+                      console.error('Error creando canvas:', e);
+                      tryDataURL();
+                  }
+                  
+                  // Método 2: Data URL (fallback)
+                  function tryDataURL() {
+                      console.log('Intentando método DataURL...');
+                      QRCode.toDataURL(qrString, {
+                          width: 280,
+                          margin: 2,
+                          color: {
+                              dark: '#000000',
+                              light: '#FFFFFF'
+                          },
+                          errorCorrectionLevel: 'M'
+                      }, function (error, url) {
+                          if (error) {
+                              console.error('Error DataURL QR:', error);
+                              showError('Error generando QR: ' + error.message);
+                          } else {
+                              console.log('QR DataURL generado exitosamente');
+                              const img = document.createElement('img');
+                              img.src = url;
+                              img.style.maxWidth = '100%';
+                              qrContainer.innerHTML = '';
+                              qrContainer.appendChild(img);
+                          }
+                      });
+                  }
+                  
+                  function showError(message) {
+                      qrContainer.innerHTML = \`
+                          <div class="error">
+                              ❌ \${message}<br>
+                              <small>Intenta actualizar la página</small>
+                          </div>
+                      \`;
+                  }
+                  
+                  // Auto-refresh cada 45 segundos
                   setTimeout(() => {
+                      console.log('Auto-refresh...');
                       location.reload();
-                  }, 30000);
+                  }, 45000);
+                  
+                  // Verificar si QRCode está disponible
+                  if (typeof QRCode === 'undefined') {
+                      console.error('QRCode library no cargada');
+                      showError('No se pudo cargar la librería QR');
+                  }
               </script>
           </body>
           </html>
