@@ -38,6 +38,12 @@ function createWebServer() {
                 <title>WhatsApp QR Code</title>
                 <meta name="viewport" content="width=device-width, initial-scale=1">
                 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+                <script>
+                    // Fallback si el primer CDN falla
+                    if (typeof QRCode === 'undefined') {
+                        document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\\/script>');
+                    }
+                </script>
                 <style>
                     body { 
                         font-family: Arial, sans-serif; 
@@ -121,6 +127,7 @@ function createWebServer() {
                 <script>
                   (function initQR() {
                       console.log('Iniciando generación de QR...');
+                      console.log('QRCode disponible:', typeof QRCode);
 
                       // Decodificar desde Base64
                       const qrString = window.atob('${base64QrCode}');
@@ -128,35 +135,38 @@ function createWebServer() {
 
                       console.log('QR String length:', qrString.length);
 
-                      // Verificar si la librería está cargada
-                      if (typeof QRCode === 'undefined') {
-                          showError('No se pudo cargar la librería QR');
-                          return; // ← Ahora SÍ es válido porque está dentro de una función
-                      }
-
-                      // Generar QR
-                      QRCode.toDataURL(qrString, {
-                          width: 280,
-                          margin: 2,
-                          color: {
-                              dark: '#000000',
-                              light: '#FFFFFF'
-                          },
-                          errorCorrectionLevel: 'M'
-                      }, function (error, url) {
-                          if (error) {
-                              console.error('Error generando QR:', error);
-                              showError('Error generando QR: ' + error.message);
-                          } else {
-                              console.log('QR generado exitosamente');
-                              const img = document.createElement('img');
-                              img.src = url;
-                              img.style.maxWidth = '100%';
-                              img.alt = 'WhatsApp QR Code';
-                              qrContainer.innerHTML = '';
-                              qrContainer.appendChild(img);
+                      // Esperar a que cargue la librería
+                      function checkLibrary() {
+                          if (typeof QRCode === 'undefined') {
+                              console.log('Librería no cargada, reintentando...');
+                              setTimeout(checkLibrary, 500);
+                              return;
                           }
-                      });
+                          
+                          console.log('Librería cargada, generando QR...');
+                          
+                          QRCode.toDataURL(qrString, {
+                              width: 280,
+                              margin: 2,
+                              color: {
+                                  dark: '#000000',
+                                  light: '#FFFFFF'
+                              }
+                          }, function (error, url) {
+                              if (error) {
+                                  console.error('Error:', error);
+                                  showError('Error: ' + error.message);
+                              } else {
+                                  const img = document.createElement('img');
+                                  img.src = url;
+                                  img.style.maxWidth = '100%';
+                                  qrContainer.innerHTML = '';
+                                  qrContainer.appendChild(img);
+                              }
+                          });
+                      }
+                      
+                      checkLibrary();
 
                       function showError(message) {
                           qrContainer.innerHTML = \`
