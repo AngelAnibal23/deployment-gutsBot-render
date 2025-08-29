@@ -28,7 +28,6 @@ function createWebServer() {
         const state = await BotState.findOne({ sessionId: 'main' });
         
         if (state?.qrCode) {
-            // Codificar el QR code en Base64 para evitar problemas con caracteres especiales
             const base64QrCode = Buffer.from(state.qrCode).toString('base64');
             
             const html = `
@@ -37,13 +36,8 @@ function createWebServer() {
             <head>
                 <title>WhatsApp QR Code</title>
                 <meta name="viewport" content="width=device-width, initial-scale=1">
-                <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-                <script>
-                    // Fallback si el primer CDN falla
-                    if (typeof QRCode === 'undefined') {
-                        document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\\/script>');
-                    }
-                </script>
+                <!-- Usar davidshimjs-qrcodejs desde jsDelivr -->
+                <script src="https://cdn.jsdelivr.net/npm/davidshimjs-qrcodejs@0.0.2/qrcode.min.js"></script>
                 <style>
                     body { 
                         font-family: Arial, sans-serif; 
@@ -103,6 +97,14 @@ function createWebServer() {
                         border-radius: 5px;
                         margin: 10px 0;
                     }
+                    .qr-data {
+                        font-size: 10px;
+                        color: #999;
+                        word-break: break-all;
+                        margin-top: 10px;
+                        max-height: 50px;
+                        overflow: hidden;
+                    }
                 </style>
             </head>
             <body>
@@ -122,67 +124,66 @@ function createWebServer() {
                         4. Escanea este código QR
                     </div>
                     <button class="refresh-btn" onclick="location.reload()">🔄 Actualizar QR</button>
+                    
+                    <div class="qr-data">
+                        Datos QR: ${state.qrCode.substring(0, 50)}...
+                    </div>
                 </div>
                 
                 <script>
-                  (function initQR() {
-                      console.log('Iniciando generación de QR...');
-                      console.log('QRCode disponible:', typeof QRCode);
-
-                      // Decodificar desde Base64
-                      const qrString = window.atob('${base64QrCode}');
-                      const qrContainer = document.getElementById('qrcode');
-
-                      console.log('QR String length:', qrString.length);
-
-                      // Esperar a que cargue la librería
-                      function checkLibrary() {
-                          if (typeof QRCode === 'undefined') {
-                              console.log('Librería no cargada, reintentando...');
-                              setTimeout(checkLibrary, 500);
-                              return;
-                          }
-                          
-                          console.log('Librería cargada, generando QR...');
-                          
-                          QRCode.toDataURL(qrString, {
-                              width: 280,
-                              margin: 2,
-                              color: {
-                                  dark: '#000000',
-                                  light: '#FFFFFF'
-                              }
-                          }, function (error, url) {
-                              if (error) {
-                                  console.error('Error:', error);
-                                  showError('Error: ' + error.message);
-                              } else {
-                                  const img = document.createElement('img');
-                                  img.src = url;
-                                  img.style.maxWidth = '100%';
-                                  qrContainer.innerHTML = '';
-                                  qrContainer.appendChild(img);
-                              }
-                          });
-                      }
-                      
-                      checkLibrary();
-
-                      function showError(message) {
-                          qrContainer.innerHTML = \`
-                              <div class="error">
-                                  ❌ \${message}<br>
-                                  <small>Intenta actualizar la página</small>
-                              </div>
-                          \`;
-                      }
-                  })();
-
-                  // Auto-refresh cada 45 segundos
-                  setTimeout(() => {
-                      console.log('Auto-refresh...');
-                      location.reload();
-                  }, 45000);
+                    console.log('Iniciando generación de QR con davidshimjs-qrcodejs...');
+                    
+                    // Decodificar desde Base64
+                    const qrString = window.atob('${base64QrCode}');
+                    const qrContainer = document.getElementById('qrcode');
+                    
+                    console.log('QR String length:', qrString.length);
+                    console.log('QR String preview:', qrString.substring(0, 50));
+                    
+                    // Verificar si la librería se cargó correctamente
+                    if (typeof QRCode === 'undefined') {
+                        console.error('Librería QRCode no cargada');
+                        showError('No se pudo cargar la librería QR');
+                    } else {
+                        console.log('Librería QRCode cargada correctamente');
+                        console.log('QRCode disponible:', QRCode);
+                        
+                        // Limpiar el contenedor
+                        qrContainer.innerHTML = '';
+                        
+                        // Crear el QR code con la API correcta de davidshimjs-qrcodejs
+                        try {
+                            new QRCode(qrContainer, {
+                                text: qrString,
+                                width: 280,
+                                height: 280,
+                                colorDark: '#000000',
+                                colorLight: '#FFFFFF',
+                                correctLevel: QRCode.CorrectLevel.M
+                            });
+                            
+                            console.log('QR code generado exitosamente');
+                            
+                        } catch (error) {
+                            console.error('Error generando QR:', error);
+                            showError('Error: ' + error.message);
+                        }
+                    }
+                    
+                    function showError(message) {
+                        qrContainer.innerHTML = \`
+                            <div class="error">
+                                ❌ \${message}<br>
+                                <small>Intenta actualizar la página</small>
+                            </div>
+                        \`;
+                    }
+                    
+                    // Auto-refresh cada 45 segundos
+                    setTimeout(() => {
+                        console.log('Auto-refresh...');
+                        location.reload();
+                    }, 45000);
                 </script>
             </body>
             </html>
