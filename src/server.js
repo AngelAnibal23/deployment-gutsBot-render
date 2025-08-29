@@ -278,9 +278,45 @@ function createWebServer() {
 
   const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`🌐 Servidor ejecutándose en puerto ${PORT}`);
+
+    if (process.env.RENDER === 'true') {
+      startKeepAlive();
+    }
   });
 
   return server;
+}
+
+// Función keep-alive mejorada
+function startKeepAlive() {
+  const url = `https://${process.env.RENDER_EXTERNAL_HOSTNAME || 'localhost'}`;
+  let consecutiveFailures = 0;
+  const maxFailures = 3;
+  
+  console.log('🔧 Iniciando keep-alive para Render...');
+  
+  // Ping cada 9 minutos (540000 ms) - menos de 10 para mayor seguridad
+  setInterval(async () => {
+    try {
+      const response = await fetch(`${url}/health`);
+      
+      if (response.ok) {
+        console.log(`✅ Keep-alive exitoso: ${new Date().toLocaleTimeString()}`);
+        consecutiveFailures = 0;
+      } else {
+        consecutiveFailures++;
+        console.log(`⚠️ Keep-alive respondió con error: ${response.status}`);
+      }
+    } catch (error) {
+      consecutiveFailures++;
+      console.log('❌ Keep-alive falló:', error.message);
+      
+      // Si falla múltiples veces, podría indicar un problema serio
+      if (consecutiveFailures >= maxFailures) {
+        console.log('🆘 Múltiples fallos en keep-alive. Verificar estado de la app.');
+      }
+    }
+  }, 9 * 60 * 1000); // 9 minutos
 }
 
 module.exports = { createWebServer };
