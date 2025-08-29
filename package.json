@@ -20,7 +20,8 @@
     "whatsapp-web.js": "^1.32.0",
     "mongoose": "^8.7.0",
     "wwebjs-mongo": "^1.1.0",
-    "dotenv": "^16.3.1"
+    "dotenv": "^16.3.1",
+    "node-fetch": "^3.3.2"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
